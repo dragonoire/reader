@@ -1,0 +1,828 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<!--PWA-START-->
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon.svg">
+<meta name="theme-color" content="#1f6f5c">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<!--PWA-END-->
+<title>游戏活动备忘录</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@600;900&family=Noto+Sans+SC:wght@400;500;700&display=swap">
+<style>
+/* 布局：顶部“开服第N天”印章 + 分页标签；内容为单列卡片流，桌面端居中限宽 */
+:root {
+  --bg: #eef2ef;
+  --surface: #ffffff;
+  --surface-2: #f6f8f6;
+  --ink: #1b231f;
+  --muted: #5b6862;
+  --line: #d5ddd8;
+  --jade: #1f6f5c;
+  --jade-ink: #ffffff;
+  --cinnabar: #b3261e;
+  --gold: #9a6a12;
+  --gold-bg: #fbf1dc;
+  --chip-s: 62%;
+  --chip-l: 44%;
+  --chip-bg-l: 93%;
+  --shadow: 0 1px 2px rgb(20 40 30 / .06), 0 4px 14px rgb(20 40 30 / .06);
+  --f-display: "Noto Serif SC", "Songti SC", "STSong", serif;
+  --f-body: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+  --r: 10px;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #111513; --surface: #1a1f1c; --surface-2: #151a17; --ink: #e5ebe7; --muted: #98a59e;
+    --line: #2b3430; --jade: #4fb89c; --jade-ink: #0b1a15; --cinnabar: #f07062; --gold: #e0ae52; --gold-bg: #2e2513;
+    --chip-s: 55%; --chip-l: 68%; --chip-bg-l: 20%; --shadow: 0 1px 2px rgb(0 0 0 / .4);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #111513; --surface: #1a1f1c; --surface-2: #151a17; --ink: #e5ebe7; --muted: #98a59e;
+  --line: #2b3430; --jade: #4fb89c; --jade-ink: #0b1a15; --cinnabar: #f07062; --gold: #e0ae52; --gold-bg: #2e2513;
+  --chip-s: 55%; --chip-l: 68%; --chip-bg-l: 20%; --shadow: 0 1px 2px rgb(0 0 0 / .4);
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: var(--bg); color: var(--ink); font-family: var(--f-body); font-size: 15px; line-height: 1.55;
+  -webkit-tap-highlight-color: transparent;
+}
+[hidden] { display: none !important; }
+button, input, textarea, select { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 2px solid var(--jade); outline-offset: 2px; }
+.wrap { max-width: 760px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+
+/* 顶部 */
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--surface); }
+header.top { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--surface); border-bottom: 1px solid var(--line); }
+.top-row { display: flex; align-items: center; gap: 12px; padding-block: 12px 8px; }
+.seal {
+  flex: none; width: 58px; height: 58px; border-radius: 8px; background: var(--cinnabar); color: #fff;
+  display: grid; place-items: center; text-align: center; line-height: 1.05; font-family: var(--f-display);
+  box-shadow: inset 0 0 0 3px rgb(255 255 255 / .22);
+}
+.seal small { display: block; font-size: 10px; letter-spacing: .1em; opacity: .9; }
+.seal b { font-size: 19px; font-weight: 900; font-variant-numeric: tabular-nums; }
+.title-block { min-width: 0; flex: 1; }
+.game-select { display: flex; align-items: center; gap: 6px; }
+.game-select select {
+  font-family: var(--f-display); font-weight: 900; font-size: 20px; border: 0; background: transparent; padding: 0 4px 0 0;
+  max-width: 100%; text-overflow: ellipsis;
+}
+.sub { color: var(--muted); font-size: 13px; }
+nav.tabs { display: flex; gap: 2px; overflow-x: auto; scrollbar-width: none; }
+nav.tabs a {
+  flex: 1 0 auto; text-align: center; padding: 8px 12px 10px; color: var(--muted); text-decoration: none; font-weight: 500;
+  border-bottom: 2.5px solid transparent; white-space: nowrap;
+}
+nav.tabs a[aria-current="page"] { color: var(--ink); border-bottom-color: var(--jade); }
+
+main { padding-block: 18px 60px; display: grid; gap: 18px; }
+h2 { font-family: var(--f-display); font-size: 18px; margin: 0; text-wrap: balance; }
+.section-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.eyebrow { font-size: 12px; letter-spacing: .08em; color: var(--muted); }
+
+/* 按钮 */
+.btn { border: 1px solid var(--line); background: var(--surface); border-radius: 8px; padding: 7px 14px; font-weight: 500; }
+.btn:hover { border-color: var(--jade); }
+.btn.primary { background: var(--jade); color: var(--jade-ink); border-color: var(--jade); }
+.btn.danger { color: var(--cinnabar); }
+.btn.sm { padding: 4px 10px; font-size: 13px; }
+.btn-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.icon-btn { border: 0; background: none; padding: 4px 8px; color: var(--muted); border-radius: 6px; }
+.icon-btn:hover { background: var(--surface-2); color: var(--ink); }
+
+/* 提示条 */
+.notice { background: var(--gold-bg); color: var(--ink); border-radius: var(--r); padding: 10px 14px; font-size: 14px; display: flex; gap: 10px; align-items: center; justify-content: space-between; flex-wrap: wrap; }
+
+/* 活动卡片 */
+.list { display: grid; gap: 10px; }
+.ev {
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 12px 14px;
+  display: grid; grid-template-columns: 6px 1fr auto; gap: 4px 12px; align-items: start;
+}
+.ev .stripe { grid-row: 1 / span 3; align-self: stretch; border-radius: 3px; background: hsl(var(--h) var(--chip-s) var(--chip-l)); }
+.ev .name { font-weight: 700; min-width: 0; }
+.ev .meta { grid-column: 2 / span 2; color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; display: flex; gap: 4px 12px; flex-wrap: wrap; }
+.ev .reward { grid-column: 2 / span 2; display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.ev .note { grid-column: 2 / span 2; font-size: 13.5px; color: var(--muted); min-width: 0; overflow-wrap: anywhere; }
+.ev.ended { opacity: .62; }
+.pill { font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: 999px; white-space: nowrap; }
+.pill.active { background: var(--cinnabar); color: #fff; }
+.pill.soon { border: 1px solid var(--jade); color: var(--jade); }
+.pill.ended { background: var(--surface-2); color: var(--muted); }
+.sp { font-size: 12px; font-weight: 900; color: var(--gold); background: var(--gold-bg); padding: 1px 6px; border-radius: 4px; letter-spacing: .04em; }
+.reward-text { font-weight: 500; }
+.progress { grid-column: 2 / span 2; height: 4px; background: var(--surface-2); border-radius: 2px; overflow: hidden; }
+.progress i { display: block; height: 100%; background: var(--cinnabar); }
+.empty { color: var(--muted); text-align: center; padding: 22px 10px; border: 1px dashed var(--line); border-radius: var(--r); }
+
+/* 今日 */
+.today-hero { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 16px; display: flex; gap: 16px; align-items: center; flex-wrap: wrap; box-shadow: var(--shadow); }
+.today-hero .big { font-family: var(--f-display); font-size: 40px; font-weight: 900; line-height: 1; font-variant-numeric: tabular-nums; }
+.today-hero .big small { font-size: 16px; font-weight: 600; margin-left: 2px; }
+.today-hero .info { min-width: 0; flex: 1; }
+.stats { display: flex; gap: 18px; }
+.stat b { display: block; font-size: 22px; font-variant-numeric: tabular-nums; }
+.stat span { font-size: 12px; color: var(--muted); }
+
+/* 筛选 */
+.seg { display: inline-flex; background: var(--surface-2); border: 1px solid var(--line); border-radius: 8px; padding: 2px; flex-wrap: wrap; }
+.seg button { border: 0; background: none; padding: 5px 12px; border-radius: 6px; font-size: 13.5px; color: var(--muted); }
+.seg button[aria-pressed="true"] { background: var(--surface); color: var(--ink); font-weight: 700; box-shadow: var(--shadow); }
+
+/* 日历 */
+.cal-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.cal-head h2 { font-variant-numeric: tabular-nums; }
+.cal { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 3px; }
+.cal .wd { text-align: center; font-size: 12px; color: var(--muted); padding-block: 4px; }
+.cell {
+  min-height: 74px; background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 4px; text-align: left;
+  display: flex; flex-direction: column; gap: 2px; min-width: 0; overflow: hidden;
+}
+.cell.out { opacity: .4; }
+.cell.today { border-color: var(--cinnabar); box-shadow: inset 0 0 0 1px var(--cinnabar); }
+.cell.sel { background: var(--surface-2); outline: 2px solid var(--jade); outline-offset: -1px; }
+.cell .d { font-weight: 700; font-size: 14px; font-variant-numeric: tabular-nums; display: flex; justify-content: space-between; gap: 2px; }
+.cell .d small { font-weight: 400; color: var(--muted); font-size: 10px; }
+.cell.today .d { color: var(--cinnabar); }
+.bar { font-size: 10.5px; line-height: 1.35; padding: 0 3px; border-radius: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  background: hsl(var(--h) var(--chip-s) var(--chip-bg-l)); color: hsl(var(--h) var(--chip-s) calc(var(--chip-l) - 8%)); border-left: 3px solid hsl(var(--h) var(--chip-s) var(--chip-l)); }
+@media (max-width: 520px) { .cell { min-height: 58px; } .bar { font-size: 0; height: 5px; padding: 0; border-left-width: 0; background: hsl(var(--h) var(--chip-s) var(--chip-l)); } .cell .d small { display: none; } }
+
+/* 攻略 */
+.search { width: 100%; padding: 9px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+.guide { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); overflow: hidden; }
+.guide > summary { list-style: none; padding: 12px 14px; display: flex; gap: 10px; align-items: center; cursor: pointer; }
+.guide > summary::-webkit-details-marker { display: none; }
+.guide > summary .t { font-weight: 700; flex: 1; min-width: 0; }
+.guide > summary .chev { color: var(--muted); transition: transform .15s; }
+.guide[open] > summary .chev { transform: rotate(90deg); }
+.tag { font-size: 12px; color: var(--jade); border: 1px solid var(--line); border-radius: 999px; padding: 0 8px; white-space: nowrap; }
+.guide-body { padding: 0 14px 14px; display: grid; gap: 8px; }
+.gb-h { font-family: var(--f-display); font-weight: 900; color: var(--cinnabar); margin-top: 4px; }
+.gb-p { white-space: pre-wrap; overflow-wrap: anywhere; }
+.pairs { display: grid; gap: 4px; }
+.pair { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 8px; background: var(--surface-2); border-radius: 6px; padding: 7px 10px; text-align: center; }
+.pair .x { font-size: 12px; color: var(--jade); font-weight: 700; border: 1px solid var(--jade); border-radius: 4px; padding: 0 6px; }
+.guide-foot { display: flex; justify-content: space-between; align-items: center; gap: 8px; color: var(--muted); font-size: 12px; flex-wrap: wrap; }
+
+/* 表单 / 弹窗 */
+dialog { border: 0; border-radius: 14px; padding: 0; width: min(560px, calc(100vw - 24px)); background: var(--surface); color: var(--ink); box-shadow: 0 20px 60px rgb(0 0 0 / .3); }
+dialog::backdrop { background: rgb(10 20 15 / .45); }
+.dlg { padding: 18px; display: grid; gap: 12px; max-height: 85vh; overflow: auto; }
+.field { display: grid; gap: 4px; }
+.field label, .lbl { font-size: 13px; color: var(--muted); font-weight: 500; }
+.field input, .field textarea, .field select { width: 100%; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface-2); }
+.field textarea { min-height: 120px; resize: vertical; line-height: 1.6; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.hint { font-size: 12.5px; color: var(--muted); }
+.dlg-foot { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 14px; display: grid; gap: 12px; }
+.game-line { display: flex; gap: 10px; align-items: center; justify-content: space-between; flex-wrap: wrap; padding-block: 8px; border-top: 1px solid var(--line); }
+.game-line:first-of-type { border-top: 0; }
+code.k { font-size: 12.5px; background: var(--surface-2); padding: 1px 5px; border-radius: 4px; }
+.toast { position: fixed; left: 50%; bottom: calc(24px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--ink); color: var(--bg); padding: 8px 16px; border-radius: 999px; font-size: 14px; z-index: 20; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <div class="top-row">
+      <div class="seal" id="seal" title="今天是开服第几天"><div><small>开服</small><b id="sealDay">—</b><small>天</small></div></div>
+      <div class="title-block">
+        <div class="game-select"><select id="gameSel" aria-label="切换游戏"></select></div>
+        <div class="sub" id="subLine"></div>
+      </div>
+    </div>
+    <nav class="tabs" id="tabs">
+      <a href="#today">今日</a>
+      <a href="#calendar">日历</a>
+      <a href="#events">活动</a>
+      <a href="#guides">攻略</a>
+      <a href="#data">设置</a>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap" id="main"></main>
+
+<dialog id="dlg"><form method="dialog" class="dlg" id="dlgForm"></form></dialog>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+(() => {
+'use strict';
+const KEY = 'game-memo-v1';
+const DAY = 86400000;
+const WD = ['日', '一', '二', '三', '四', '五', '六'];
+
+/* ---------- 日期工具（全部按本地日历日，用 UTC 运算避免时区误差） ---------- */
+const pad = n => String(n).padStart(2, '0');
+const localToday = () => { const d = new Date(); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
+const toT = s => { const [y, m, d] = s.split('-').map(Number); return Date.UTC(y, m - 1, d); };
+const fromT = t => new Date(t).toISOString().slice(0, 10);
+const addDays = (s, n) => fromT(toT(s) + n * DAY);
+const diffDays = (a, b) => Math.round((toT(b) - toT(a)) / DAY);
+const md = s => { const [, m, d] = s.split('-').map(Number); return `${m}/${d}`; };
+const mdCn = s => { const [, m, d] = s.split('-').map(Number); return `${m}月${d}日`; };
+const weekday = s => '周' + WD[new Date(toT(s)).getUTCDay()];
+const isDate = s => /^\d{4}-\d{2}-\d{2}$/.test(s || '');
+
+const uid = () => Math.random().toString(36).slice(2, 10);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+/* ---------- 示例数据（来自截图） ---------- */
+function sampleGame() {
+  const today = localToday();
+  const rows = [
+    [398, 402, '第14次玲珑宝阁', 'SP名驹破虚夜影', '寻驹令累计使用400抽，十层获得SP名驹破虚夜影，可切换碧落衔芝'],
+    [403, 407, '第14次SP武将炎君周瑜', 'SP炎君周瑜本体卡', '累计使用100点将令和100阵营专武锤子，获得炎君周瑜SP本体卡，可切换噬心司马懿'],
+    [408, 412, '第13次投壶神兽活动', 'SP神兽金翅大鹏', '累计使用260万兽铃，可获得sp神兽金翅大鹏，可切换穷奇'],
+    [413, 417, '兵法阵牌活动', 'SP兵法龙战于野', '累计使用260兵法简，十层获得SP兵法龙战于野，可切换不动如山'],
+    [418, 422, 'SP英杰', 'SP英杰张良本体卡', '累计使用260聚贤帖，获得一张SP英杰张良本体卡，可切换白起'],
+    [423, 427, '第15轮天灯活动', 'SP法宝龙渊剑祖', '罗盘累计使用260抽，十层获得SP法宝龙渊剑祖，可切换夔牛雷鼓'],
+    [428, 432, '第15次玲珑宝阁', 'SP名驹飞雪寒梅', '寻驹令累计使用400抽，十层获得SP名驹飞雪寒梅，可切换破虚夜影'],
+    [433, 437, '第15次SP武将昭烈刘备', 'SP昭烈刘备本体卡', '累计使用100点将令和100阵营专武锤子，获得昭烈刘备SP本体卡，可切换炎君周瑜'],
+    [438, 442, '第14次投壶神兽活动', 'SP神兽烛阴', '累计使用260万兽铃，可获得sp神兽烛阴，可切换金翅大鹏'],
+    [443, 447, '兵法阵牌活动', 'SP兵法潜龙勿用', '累计使用260兵法简，十层获得SP兵法潜龙勿用，可切换不动如山'],
+    [448, 452, 'SP英杰', 'SP英杰姜子牙本体卡', '累计使用260聚贤帖，获得一张SP英杰姜子牙本体卡，可切换白起'],
+    [453, 457, '第16轮天灯活动', 'SP法宝青冥之刃', '罗盘累计使用260抽，十层获得SP法宝青冥之刃，可切换龙渊剑祖'],
+  ];
+  return {
+    id: uid(), name: '三国青杉', openDate: addDays(today, -399), sampleDate: true,
+    activities: rows.map(([s, e, name, reward, note]) => ({ id: uid(), mode: 'day', start: s, end: e, name, reward, note })),
+    guides: [{
+      id: uid(), title: '官学合作-青杉攻略', tags: '官学, 属性',
+      content: '伤害率 合作 免伤率\n暴击率 合作 抗暴率\n破击率 合作 格挡率\n# 三国青杉 - QS3165\n暴击强度 合作 暴击抗性\n破击强度 合作 格挡减伤',
+      updated: today,
+    }],
+  };
+}
+
+/* ---------- 存储 ---------- */
+let memStore = null;
+function load() {
+  try { const raw = localStorage.getItem(KEY); if (raw) return JSON.parse(raw); } catch (e) {}
+  if (memStore) return memStore;
+  const g = sampleGame();
+  return { version: 1, currentGameId: g.id, games: [g] };
+}
+function save() {
+  memStore = state;
+  try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {}
+}
+let state = load();
+if (!state.games?.length) { const g = sampleGame(); state = { version: 1, currentGameId: g.id, games: [g] }; }
+const game = () => state.games.find(g => g.id === state.currentGameId) || state.games[0];
+
+/* ---------- 活动计算 ---------- */
+function range(a, g = game()) {
+  if (a.mode === 'date') return [a.start, a.end || a.start];
+  return [addDays(g.openDate, a.start - 1), addDays(g.openDate, (a.end || a.start) - 1)];
+}
+function dayOf(dateStr, g = game()) { return diffDays(g.openDate, dateStr) + 1; }
+function statusOf(a, today = localToday()) {
+  const [s, e] = range(a);
+  if (today < s) return 'soon';
+  if (today > e) return 'ended';
+  return 'active';
+}
+function hueOf(name) {
+  const key = String(name).replace(/^第\s*\d+\s*[次轮期届]\s*/, '').replace(/\d+/g, '');
+  let h = 0; for (const ch of key) h = (h * 31 + ch.codePointAt(0)) % 3600;
+  return (h * 7) % 360;
+}
+const sorted = list => [...list].sort((a, b) => range(a)[0].localeCompare(range(b)[0]) || a.name.localeCompare(b.name));
+
+/* ---------- 渲染：活动卡片 ---------- */
+function rewardHtml(r) {
+  if (!r) return '';
+  const m = /^SP\s*/i.exec(r);
+  return m ? `<span class="sp">SP</span><span class="reward-text">${esc(r.slice(m[0].length))}</span>` : `<span class="reward-text">${esc(r)}</span>`;
+}
+function evCard(a, today = localToday()) {
+  const g = game();
+  const [s, e] = range(a);
+  const st = statusOf(a, today);
+  const total = diffDays(s, e) + 1;
+  let pill = '', extra = '';
+  if (st === 'active') {
+    const left = diffDays(today, e);
+    pill = `<span class="pill active">${left === 0 ? '今天结束' : `进行中 · 剩${left + 1}天`}</span>`;
+    const done = diffDays(s, today) + 1;
+    extra = `<div class="progress" aria-hidden="true"><i style="width:${Math.round(done / total * 100)}%"></i></div>`;
+  } else if (st === 'soon') {
+    const n = diffDays(today, s);
+    pill = `<span class="pill soon">${n === 1 ? '明天开始' : `${n}天后`}</span>`;
+  } else pill = `<span class="pill ended">已结束</span>`;
+  const dayLabel = a.mode === 'day' ? `第${a.start}${a.end && a.end !== a.start ? '–' + a.end : ''}天` : `开服第${dayOf(s, g)}–${dayOf(e, g)}天`;
+  return `<article class="ev ${st}" style="--h:${hueOf(a.name)}">
+    <span class="stripe"></span>
+    <div class="name">${esc(a.name)}</div>
+    <div>${pill}</div>
+    <div class="meta"><span>${md(s)} ${weekday(s)} → ${md(e)} ${weekday(e)}</span><span>${dayLabel}</span>
+      <button type="button" class="icon-btn" data-edit="${a.id}" style="margin-left:auto;padding:0 6px">编辑</button></div>
+    ${a.reward ? `<div class="reward">${rewardHtml(a.reward)}</div>` : ''}
+    ${a.note ? `<div class="note">${esc(a.note)}</div>` : ''}
+    ${extra}
+  </article>`;
+}
+
+/* ---------- 页面 ---------- */
+const main = document.getElementById('main');
+let view = 'today';
+let evFilter = 'all';
+let calMonth = localToday().slice(0, 7);
+let calSel = localToday();
+let guideQuery = '';
+
+function header() {
+  const g = game();
+  const t = localToday();
+  const n = dayOf(t);
+  document.getElementById('sealDay').textContent = n > 0 ? n : '未开';
+  document.getElementById('subLine').textContent = `${mdCn(t)} ${weekday(t)} · 开服日 ${g.openDate}`;
+  const sel = document.getElementById('gameSel');
+  sel.innerHTML = state.games.map(x => `<option value="${x.id}"${x.id === g.id ? ' selected' : ''}>${esc(x.name)}</option>`).join('') + '<option value="__new">＋ 添加游戏…</option>';
+  document.querySelectorAll('#tabs a').forEach(a => a.setAttribute('aria-current', a.getAttribute('href') === '#' + view ? 'page' : 'false'));
+}
+
+function sampleNotice() {
+  if (!game().sampleDate) return '';
+  return `<div class="notice"><span>开服日期目前是示例值。改成你所在区服的开服日期，所有活动时间会自动换算。</span>
+    <button type="button" class="btn sm primary" data-act="openDate">设置开服日期</button></div>`;
+}
+
+function renderToday() {
+  const g = game(), t = localToday();
+  const acts = sorted(g.activities);
+  const active = acts.filter(a => statusOf(a, t) === 'active');
+  const soon = acts.filter(a => statusOf(a, t) === 'soon').slice(0, 4);
+  const next = soon[0];
+  const n = dayOf(t);
+  main.innerHTML = `
+    ${sampleNotice()}
+    <section class="today-hero">
+      <div class="big">${n > 0 ? n : '—'}<small>${n > 0 ? '天' : '未开服'}</small></div>
+      <div class="info">
+        <div class="eyebrow">今天 · ${mdCn(t)} ${weekday(t)}</div>
+        <div>${active.length ? `正在进行 <b>${active.length}</b> 个活动` : '今天没有记录的活动'}${next ? `，下一个「${esc(next.name)}」${diffDays(t, range(next)[0])}天后开始` : ''}</div>
+      </div>
+    </section>
+    <section class="list">
+      <div class="section-head"><h2>进行中</h2><button type="button" class="btn sm" data-act="addEv">＋ 添加活动</button></div>
+      ${active.length ? active.map(a => evCard(a, t)).join('') : '<div class="empty">今天没有进行中的活动</div>'}
+    </section>
+    <section class="list">
+      <div class="section-head"><h2>即将开始</h2><a class="btn sm" href="#events">全部活动</a></div>
+      ${soon.length ? soon.map(a => evCard(a, t)).join('') : '<div class="empty">后面还没有安排，去「活动」里添加</div>'}
+    </section>`;
+}
+
+function renderCalendar() {
+  const g = game(), t = localToday();
+  const [y, m] = calMonth.split('-').map(Number);
+  const first = `${y}-${pad(m)}-01`;
+  const startOffset = new Date(toT(first)).getUTCDay();
+  const gridStart = addDays(first, -startOffset);
+  const acts = sorted(g.activities).map(a => ({ a, r: range(a) }));
+  let cells = '';
+  for (let i = 0; i < 42; i++) {
+    const d = addDays(gridStart, i);
+    if (i === 35 && d.slice(0, 7) !== calMonth) break;
+    const on = acts.filter(x => x.r[0] <= d && d <= x.r[1]);
+    const dn = dayOf(d);
+    const cls = ['cell', d.slice(0, 7) !== calMonth && 'out', d === t && 'today', d === calSel && 'sel'].filter(Boolean).join(' ');
+    cells += `<button type="button" class="${cls}" data-day="${d}" aria-label="${mdCn(d)}，${on.length}个活动">
+      <span class="d">${Number(d.slice(8))}${dn > 0 ? `<small>${dn}</small>` : ''}</span>
+      ${on.slice(0, 3).map(x => `<span class="bar" style="--h:${hueOf(x.a.name)}">${esc(x.a.name.replace(/^第\s*\d+\s*[次轮期届]/, ''))}</span>`).join('')}
+      ${on.length > 3 ? `<span class="sub" style="font-size:10px">+${on.length - 3}</span>` : ''}
+    </button>`;
+  }
+  const selActs = acts.filter(x => x.r[0] <= calSel && calSel <= x.r[1]).map(x => x.a);
+  const sdn = dayOf(calSel);
+  main.innerHTML = `
+    ${sampleNotice()}
+    <section>
+      <div class="cal-head">
+        <button type="button" class="btn sm" data-cal="-1" aria-label="上个月">‹</button>
+        <h2>${y}年${m}月</h2>
+        <div class="btn-row"><button type="button" class="btn sm" data-cal="0">今天</button><button type="button" class="btn sm" data-cal="1" aria-label="下个月">›</button></div>
+      </div>
+    </section>
+    <section class="cal">${WD.map(w => `<div class="wd">${w}</div>`).join('')}${cells}</section>
+    <section class="list">
+      <div class="section-head"><h2>${mdCn(calSel)} ${weekday(calSel)}${sdn > 0 ? ` · 开服第${sdn}天` : ''}</h2>
+        <button type="button" class="btn sm" data-act="addEvOn" data-on="${calSel}">＋ 这天添加</button></div>
+      ${selActs.length ? selActs.map(a => evCard(a, t)).join('') : '<div class="empty">这天没有活动</div>'}
+    </section>`;
+}
+
+function renderEvents() {
+  const t = localToday();
+  const all = sorted(game().activities);
+  const counts = { all: all.length, active: 0, soon: 0, ended: 0 };
+  all.forEach(a => counts[statusOf(a, t)]++);
+  const list = evFilter === 'all' ? all : all.filter(a => statusOf(a, t) === evFilter);
+  const seg = [['all', '全部'], ['active', '进行中'], ['soon', '未开始'], ['ended', '已结束']]
+    .map(([k, l]) => `<button type="button" data-filter="${k}" aria-pressed="${evFilter === k}">${l} ${counts[k]}</button>`).join('');
+  main.innerHTML = `
+    ${sampleNotice()}
+    <section class="section-head">
+      <div class="seg" role="group" aria-label="按状态筛选">${seg}</div>
+      <div class="btn-row"><button type="button" class="btn sm" data-act="bulk">批量粘贴</button><button type="button" class="btn sm primary" data-act="addEv">＋ 添加活动</button></div>
+    </section>
+    <section class="list">${list.length ? list.map(a => evCard(a, t)).join('') : '<div class="empty">没有符合条件的活动</div>'}</section>`;
+}
+
+function guideBody(content) {
+  const lines = String(content).split('\n');
+  let html = '', pairs = [], para = [];
+  const flushPairs = () => { if (pairs.length) { html += `<div class="pairs">${pairs.join('')}</div>`; pairs = []; } };
+  const flushPara = () => { if (para.length) { html += `<div class="gb-p">${esc(para.join('\n'))}</div>`; para = []; } };
+  for (const raw of lines) {
+    const line = raw.trim();
+    const pm = /^(.+?)\s*(合作|→|<->|↔|克制|搭配|=)\s*(.+)$/.exec(line);
+    if (line.startsWith('#')) { flushPairs(); flushPara(); html += `<div class="gb-h">${esc(line.replace(/^#+\s*/, ''))}</div>`; }
+    else if (pm && line.length < 40) { flushPara(); pairs.push(`<div class="pair"><span>${esc(pm[1])}</span><span class="x">${esc(pm[2])}</span><span>${esc(pm[3])}</span></div>`); }
+    else if (!line) { flushPairs(); flushPara(); }
+    else { flushPairs(); para.push(raw); }
+  }
+  flushPairs(); flushPara();
+  return html || '<div class="hint">（空）</div>';
+}
+
+function renderGuides() {
+  const q = guideQuery.trim().toLowerCase();
+  const list = [...game().guides].sort((a, b) => (b.updated || '').localeCompare(a.updated || ''))
+    .filter(x => !q || (x.title + ' ' + x.tags + ' ' + x.content).toLowerCase().includes(q));
+  main.innerHTML = `
+    <section class="section-head">
+      <h2>攻略笔记</h2>
+      <button type="button" class="btn sm primary" data-act="addGuide">＋ 新建攻略</button>
+    </section>
+    <input class="search" id="guideSearch" type="search" placeholder="搜索标题、标签或内容" value="${esc(guideQuery)}">
+    <section class="list">${list.length ? list.map((x, i) => `
+      <details class="guide"${i === 0 && !q ? ' open' : q ? ' open' : ''}>
+        <summary><span class="t">${esc(x.title)}</span>${String(x.tags || '').split(/[,，\s]+/).filter(Boolean).map(t => `<span class="tag">${esc(t)}</span>`).join('')}<span class="chev">›</span></summary>
+        <div class="guide-body">${guideBody(x.content)}
+          <div class="guide-foot"><span>更新于 ${esc(x.updated || '')}</span>
+            <span class="btn-row"><button type="button" class="btn sm" data-copy-guide="${x.id}">复制</button><button type="button" class="btn sm" data-edit-guide="${x.id}">编辑</button></span></div>
+        </div>
+      </details>`).join('') : `<div class="empty">${q ? '没有找到相关攻略' : '还没有攻略，点「新建攻略」记下第一条'}</div>`}
+    </section>`;
+  const s = document.getElementById('guideSearch');
+  s.addEventListener('input', () => { guideQuery = s.value; const pos = s.selectionStart; renderGuides(); const n = document.getElementById('guideSearch'); n.focus(); n.setSelectionRange(pos, pos); });
+}
+
+function renderData() {
+  const g = game();
+  main.innerHTML = `
+    <section class="card">
+      <h2>当前游戏</h2>
+      <div class="grid2">
+        <div class="field"><label for="gName">游戏 / 区服名称</label><input id="gName" value="${esc(g.name)}"></div>
+        <div class="field"><label for="gOpen">开服日期（开服第1天）</label><input id="gOpen" type="date" value="${g.openDate}"></div>
+      </div>
+      <div class="field"><label for="gToday">或者：今天是开服第几天？</label><input id="gToday" type="number" min="1" inputmode="numeric" placeholder="例如 400" value="${dayOf(localToday()) > 0 ? dayOf(localToday()) : ''}"></div>
+      <div class="hint">改开服日期后，所有按「开服天数」记录的活动会自动换算成实际日期。</div>
+      <div class="btn-row"><button type="button" class="btn primary" data-act="saveGame">保存</button>
+        ${state.games.length > 1 ? '<button type="button" class="btn danger" data-act="delGame">删除这个游戏</button>' : ''}</div>
+    </section>
+    <section class="card">
+      <h2>所有游戏</h2>
+      <div>${state.games.map(x => `<div class="game-line"><span><b>${esc(x.name)}</b> <span class="sub">开服 ${x.openDate} · ${x.activities.length} 个活动 · ${x.guides.length} 篇攻略</span></span>
+        ${x.id === g.id ? '<span class="pill soon">当前</span>' : `<button type="button" class="btn sm" data-switch="${x.id}">切换</button>`}</div>`).join('')}</div>
+      <div><button type="button" class="btn sm" data-act="newGame">＋ 添加游戏</button></div>
+    </section>
+    <section class="card">
+      <h2>备份与恢复</h2>
+      <div class="hint">数据只保存在这台设备的浏览器里。换手机或清理浏览器前，先导出备份。</div>
+      <div class="btn-row">
+        <button type="button" class="btn" data-act="exportFile">下载备份文件</button>
+        <button type="button" class="btn" data-act="exportCopy">复制备份文本</button>
+        <label class="btn" for="importFile">从文件恢复</label><input id="importFile" type="file" accept=".json,application/json" hidden>
+        <button type="button" class="btn" data-act="importPaste">粘贴文本恢复</button>
+      </div>
+    </section>
+    <section class="card">
+      <h2>外观</h2>
+      <div class="seg" role="group" aria-label="主题">
+        ${[['', '跟随系统'], ['light', '浅色'], ['dark', '深色']].map(([k, l]) => `<button type="button" data-theme-set="${k}" aria-pressed="${(state.theme || '') === k}">${l}</button>`).join('')}
+      </div>
+    </section>`;
+  document.getElementById('importFile').addEventListener('change', e => {
+    const f = e.target.files[0]; if (!f) return;
+    const r = new FileReader(); r.onload = () => doImport(r.result); r.readAsText(f);
+  });
+}
+
+function render() {
+  header();
+  ({ today: renderToday, calendar: renderCalendar, events: renderEvents, guides: renderGuides, data: renderData }[view] || renderToday)();
+}
+
+/* ---------- 弹窗 ---------- */
+const dlg = document.getElementById('dlg');
+const dlgForm = document.getElementById('dlgForm');
+let dlgSubmit = null;
+function openDialog(html, onSubmit) {
+  dlgForm.innerHTML = html;
+  dlgSubmit = onSubmit;
+  if (typeof dlg.showModal === 'function') dlg.showModal(); else dlg.setAttribute('open', '');
+  const f = dlgForm.querySelector('input:not([type=hidden]),textarea'); if (f) f.focus();
+}
+function closeDialog() { if (dlg.open) dlg.close(); else dlg.removeAttribute('open'); }
+dlgForm.addEventListener('submit', e => {
+  const btn = e.submitter;
+  if (btn && btn.value === 'cancel') return;
+  e.preventDefault();
+  if (btn && btn.dataset.confirm && btn.dataset.armed !== '1') { btn.dataset.armed = '1'; btn.textContent = btn.dataset.confirm; return; }
+  const ok = dlgSubmit && dlgSubmit(btn ? btn.value : 'ok', new FormData(dlgForm));
+  if (ok !== false) closeDialog();
+});
+dlgForm.addEventListener('click', e => { if (e.target.value === 'cancel') { e.preventDefault(); closeDialog(); } });
+
+function toast(msg) {
+  const el = document.getElementById('toast'); el.textContent = msg; el.hidden = false;
+  clearTimeout(toast.t); toast.t = setTimeout(() => el.hidden = true, 2200);
+}
+
+function editActivity(a, presetDate) {
+  const g = game();
+  const isNew = !a;
+  a = a || (presetDate
+    ? { mode: 'day', start: Math.max(1, dayOf(presetDate)), end: Math.max(1, dayOf(presetDate)) + 4, name: '', reward: '', note: '' }
+    : { mode: 'day', start: Math.max(1, dayOf(localToday())), end: Math.max(1, dayOf(localToday())) + 4, name: '', reward: '', note: '' });
+  const [rs, re] = range(a);
+  const html = `
+    <h2>${isNew ? '添加活动' : '编辑活动'}</h2>
+    <div class="field"><label for="fName">活动名称</label><input id="fName" name="name" required value="${esc(a.name)}" placeholder="例如：第14次玲珑宝阁"></div>
+    <div class="field"><label for="fReward">奖励内容</label><input id="fReward" name="reward" value="${esc(a.reward)}" placeholder="例如：SP名驹破虚夜影"></div>
+    <div class="field"><span class="lbl">时间记法</span>
+      <div class="seg" role="group"><button type="button" data-mode="day" aria-pressed="${a.mode !== 'date'}">按开服天数</button><button type="button" data-mode="date" aria-pressed="${a.mode === 'date'}">按具体日期</button></div>
+      <input type="hidden" name="mode" id="fMode" value="${a.mode === 'date' ? 'date' : 'day'}"></div>
+    <div class="grid2" id="byDay" ${a.mode === 'date' ? 'hidden' : ''}>
+      <div class="field"><label for="fS">开始（第几天）</label><input id="fS" name="sDay" type="number" min="1" inputmode="numeric" value="${a.mode === 'date' ? dayOf(rs) : a.start}"></div>
+      <div class="field"><label for="fE">结束（第几天）</label><input id="fE" name="eDay" type="number" min="1" inputmode="numeric" value="${a.mode === 'date' ? dayOf(re) : a.end}"></div>
+    </div>
+    <div class="grid2" id="byDate" ${a.mode === 'date' ? '' : 'hidden'}>
+      <div class="field"><label for="fSD">开始日期</label><input id="fSD" name="sDate" type="date" value="${rs}"></div>
+      <div class="field"><label for="fED">结束日期</label><input id="fED" name="eDate" type="date" value="${re}"></div>
+    </div>
+    <div class="hint" id="fPreview"></div>
+    <div class="field"><label for="fNote">备注</label><textarea id="fNote" name="note" style="min-height:80px" placeholder="条件、可切换的奖励等">${esc(a.note)}</textarea></div>
+    <div class="dlg-foot">
+      <span>${isNew ? '' : '<button class="btn danger" value="delete" data-confirm="再点一次确认删除">删除</button>'}</span>
+      <span class="btn-row">${isNew ? '' : '<button class="btn" value="copy">复制一份</button>'}<button class="btn" value="cancel" formnovalidate>取消</button><button class="btn primary" value="ok">保存</button></span>
+    </div>`;
+  openDialog(html, (action, fd) => {
+    if (action === 'delete') { g.activities = g.activities.filter(x => x.id !== a.id); save(); render(); toast('已删除'); return; }
+    const mode = fd.get('mode');
+    const item = { id: isNew || action === 'copy' ? uid() : a.id, mode, name: String(fd.get('name')).trim(), reward: String(fd.get('reward')).trim(), note: String(fd.get('note')).trim() };
+    if (mode === 'date') {
+      item.start = fd.get('sDate'); item.end = fd.get('eDate') || item.start;
+      if (!isDate(item.start)) { toast('请填写开始日期'); return false; }
+      if (item.end < item.start) [item.start, item.end] = [item.end, item.start];
+    } else {
+      item.start = parseInt(fd.get('sDay'), 10); item.end = parseInt(fd.get('eDay'), 10) || item.start;
+      if (!(item.start > 0)) { toast('请填写开始天数'); return false; }
+      if (item.end < item.start) [item.start, item.end] = [item.end, item.start];
+    }
+    if (!item.name) { toast('请填写活动名称'); return false; }
+    const i = g.activities.findIndex(x => x.id === item.id);
+    if (i >= 0) g.activities[i] = item; else g.activities.push(item);
+    save(); render(); toast(action === 'copy' ? '已复制一份' : '已保存');
+  });
+  const preview = () => {
+    const mode = document.getElementById('fMode').value;
+    let s, e;
+    if (mode === 'date') { s = document.getElementById('fSD').value; e = document.getElementById('fED').value || s; }
+    else { const sd = +document.getElementById('fS').value, ed = +document.getElementById('fE').value || sd; if (sd > 0) { s = addDays(g.openDate, sd - 1); e = addDays(g.openDate, ed - 1); } }
+    document.getElementById('fPreview').textContent = isDate(s) && isDate(e)
+      ? (mode === 'date' ? `= 开服第${dayOf(s)}–${dayOf(e)}天` : `= ${s.replaceAll('-', '/')} ${weekday(s)} 至 ${e.replaceAll('-', '/')} ${weekday(e)}`) : '';
+  };
+  dlgForm.querySelectorAll('[data-mode]').forEach(b => b.addEventListener('click', () => {
+    const m = b.dataset.mode;
+    const fm = document.getElementById('fMode');
+    if (m === fm.value) return;
+    // 切换时互相换算，保持同一段时间
+    if (m === 'date') { const sd = +document.getElementById('fS').value, ed = +document.getElementById('fE').value || sd; if (sd > 0) { document.getElementById('fSD').value = addDays(g.openDate, sd - 1); document.getElementById('fED').value = addDays(g.openDate, ed - 1); } }
+    else { const s = document.getElementById('fSD').value, e = document.getElementById('fED').value || s; if (isDate(s)) { document.getElementById('fS').value = dayOf(s); document.getElementById('fE').value = dayOf(e); } }
+    fm.value = m;
+    dlgForm.querySelectorAll('[data-mode]').forEach(x => x.setAttribute('aria-pressed', x.dataset.mode === m));
+    document.getElementById('byDay').hidden = m === 'date';
+    document.getElementById('byDate').hidden = m !== 'date';
+    preview();
+  }));
+  dlgForm.querySelectorAll('#fS,#fE,#fSD,#fED').forEach(i => i.addEventListener('input', preview));
+  preview();
+}
+
+function parseBulk(text) {
+  const out = [], bad = [];
+  for (const raw of String(text).split('\n')) {
+    const line = raw.trim(); if (!line) continue;
+    const m = /^第?\s*(\d+)\s*(?:[-~—–至到]\s*(\d+))?\s*天?[\s|｜]*(.*)$/.exec(line);
+    if (!m || !m[3]) { bad.push(line); continue; }
+    let rest = m[3].split(/\t|\s{2,}|\s*[|｜]\s*/).map(s => s.trim()).filter(Boolean);
+    if (rest.length === 1) rest = rest[0].split(/\s+/);
+    const start = +m[1], end = m[2] ? +m[2] : start;
+    const [name, reward = '', ...note] = rest;
+    out.push({ id: uid(), mode: 'day', start: Math.min(start, end), end: Math.max(start, end), name, reward, note: note.join(' ') });
+  }
+  return { out, bad };
+}
+
+function bulkDialog() {
+  openDialog(`
+    <h2>批量粘贴活动</h2>
+    <div class="hint">每行一个活动：<code class="k">开服天数 活动名称 奖励 备注</code>，各项之间用 Tab、两个空格或 | 分隔。可以直接从表格复制。</div>
+    <div class="field"><label for="bulkTxt">活动列表</label><textarea id="bulkTxt" name="txt" style="min-height:180px" placeholder="458-462天 | 第16次玲珑宝阁 | SP名驹XXX | 寻驹令累计使用400抽"></textarea></div>
+    <div class="hint" id="bulkPrev"></div>
+    <div class="dlg-foot"><span></span><span class="btn-row"><button class="btn" value="cancel" formnovalidate>取消</button><button class="btn primary" value="ok">添加</button></span></div>`,
+  (_, fd) => {
+    const { out, bad } = parseBulk(fd.get('txt'));
+    if (!out.length) { toast('没有识别到活动，检查一下格式'); return false; }
+    game().activities.push(...out); save(); render();
+    toast(`已添加 ${out.length} 个活动${bad.length ? `，${bad.length} 行未识别` : ''}`);
+  });
+  const ta = document.getElementById('bulkTxt');
+  ta.addEventListener('input', () => {
+    const { out, bad } = parseBulk(ta.value);
+    document.getElementById('bulkPrev').textContent = ta.value.trim() ? `识别到 ${out.length} 个活动${bad.length ? `，${bad.length} 行无法识别：${bad[0].slice(0, 30)}…` : ''}` : '';
+  });
+}
+
+function editGuide(x) {
+  const isNew = !x;
+  x = x || { title: '', tags: '', content: '' };
+  openDialog(`
+    <h2>${isNew ? '新建攻略' : '编辑攻略'}</h2>
+    <div class="field"><label for="gT">标题</label><input id="gT" name="title" required value="${esc(x.title)}" placeholder="例如：官学合作-青杉攻略"></div>
+    <div class="field"><label for="gTags">标签（逗号分隔）</label><input id="gTags" name="tags" value="${esc(x.tags)}" placeholder="例如：阵容, 养成"></div>
+    <div class="field"><label for="gC">内容</label><textarea id="gC" name="content" style="min-height:220px">${esc(x.content)}</textarea></div>
+    <div class="hint">小技巧：<code class="k">A 合作 B</code> 这样的行会排成对照表；以 <code class="k">#</code> 开头的行显示为小标题。</div>
+    <div class="dlg-foot">
+      <span>${isNew ? '' : '<button class="btn danger" value="delete" data-confirm="再点一次确认删除">删除</button>'}</span>
+      <span class="btn-row"><button class="btn" value="cancel" formnovalidate>取消</button><button class="btn primary" value="ok">保存</button></span>
+    </div>`,
+  (action, fd) => {
+    const g = game();
+    if (action === 'delete') { g.guides = g.guides.filter(y => y.id !== x.id); save(); render(); toast('已删除'); return; }
+    const item = { id: x.id || uid(), title: String(fd.get('title')).trim(), tags: String(fd.get('tags')).trim(), content: String(fd.get('content')), updated: localToday() };
+    if (!item.title) { toast('请填写标题'); return false; }
+    const i = g.guides.findIndex(y => y.id === item.id);
+    if (i >= 0) g.guides[i] = item; else g.guides.push(item);
+    save(); render(); toast('已保存');
+  });
+}
+
+function openDateDialog() {
+  const g = game();
+  openDialog(`
+    <h2>设置开服日期</h2>
+    <div class="field"><label for="oD">开服日期（开服第1天）</label><input id="oD" name="d" type="date" value="${g.openDate}"></div>
+    <div class="field"><label for="oN">或者：今天是开服第几天？</label><input id="oN" name="n" type="number" min="1" inputmode="numeric" value="${dayOf(localToday()) > 0 ? dayOf(localToday()) : ''}"></div>
+    <div class="hint">游戏里通常能看到“开服第N天”，填天数最省事。</div>
+    <div class="dlg-foot"><span></span><span class="btn-row"><button class="btn" value="cancel" formnovalidate>取消</button><button class="btn primary" value="ok">保存</button></span></div>`,
+  (_, fd) => {
+    const d = fd.get('d'), n = parseInt(fd.get('n'), 10);
+    if (n > 0 && n !== dayOf(localToday())) g.openDate = addDays(localToday(), -(n - 1));
+    else if (isDate(d)) g.openDate = d;
+    else { toast('请填写日期或天数'); return false; }
+    delete g.sampleDate; save(); render(); toast(`开服日期：${g.openDate}`);
+  });
+  document.getElementById('oN').addEventListener('input', e => { const n = +e.target.value; if (n > 0) document.getElementById('oD').value = addDays(localToday(), -(n - 1)); });
+  document.getElementById('oD').addEventListener('input', e => { if (isDate(e.target.value)) document.getElementById('oN').value = dayOf(e.target.value); });
+}
+
+function newGameDialog() {
+  openDialog(`
+    <h2>添加游戏</h2>
+    <div class="field"><label for="nN">游戏 / 区服名称</label><input id="nN" name="name" required placeholder="例如：三国青杉 S12服"></div>
+    <div class="field"><label for="nD">开服日期</label><input id="nD" name="d" type="date" value="${localToday()}"></div>
+    <div class="dlg-foot"><span></span><span class="btn-row"><button class="btn" value="cancel" formnovalidate>取消</button><button class="btn primary" value="ok">添加</button></span></div>`,
+  (_, fd) => {
+    const name = String(fd.get('name')).trim(); if (!name) return false;
+    const g = { id: uid(), name, openDate: isDate(fd.get('d')) ? fd.get('d') : localToday(), activities: [], guides: [] };
+    state.games.push(g); state.currentGameId = g.id; save(); location.hash = '#events'; render(); toast('已添加，可以开始记录活动了');
+  });
+}
+
+/* ---------- 备份 ---------- */
+function exportText() { return JSON.stringify({ app: 'game-memo', exportedAt: new Date().toISOString(), ...state }, null, 2); }
+function doImport(text) {
+  try {
+    const d = JSON.parse(text);
+    if (!Array.isArray(d.games) || !d.games.length) throw new Error();
+    d.games.forEach(g => { g.id ||= uid(); g.activities ||= []; g.guides ||= []; if (!isDate(g.openDate)) g.openDate = localToday(); });
+    state = { version: 1, currentGameId: d.currentGameId || d.games[0].id, games: d.games, theme: d.theme || state.theme };
+    save(); applyTheme(); render(); toast(`已恢复 ${d.games.length} 个游戏`);
+    return true;
+  } catch (e) { toast('备份内容无法识别'); return false; }
+}
+
+function applyTheme() {
+  if (state.theme) document.documentElement.setAttribute('data-theme', state.theme);
+  else document.documentElement.removeAttribute('data-theme');
+}
+
+/* ---------- 事件 ---------- */
+document.addEventListener('click', e => {
+  const el = e.target.closest('button,[data-day]');
+  if (!el || dlg.contains(el)) return;
+  const g = game();
+  const d = el.dataset;
+  if (d.edit) editActivity(g.activities.find(a => a.id === d.edit));
+  else if (d.editGuide) editGuide(g.guides.find(x => x.id === d.editGuide));
+  else if (d.copyGuide) {
+    const x = g.guides.find(y => y.id === d.copyGuide);
+    const txt = `${x.title}\n${x.content}`;
+    navigator.clipboard?.writeText(txt).then(() => toast('已复制'), () => toast('复制失败，请长按文字手动复制'));
+  }
+  else if (d.filter) { evFilter = d.filter; render(); }
+  else if (d.day) { calSel = d.day; if (d.day.slice(0, 7) !== calMonth) calMonth = d.day.slice(0, 7); render(); }
+  else if (d.cal !== undefined) {
+    if (d.cal === '0') { calMonth = localToday().slice(0, 7); calSel = localToday(); }
+    else { const [y, m] = calMonth.split('-').map(Number); const dt = new Date(Date.UTC(y, m - 1 + Number(d.cal), 1)); calMonth = dt.toISOString().slice(0, 7); }
+    render();
+  }
+  else if (d.switch) { state.currentGameId = d.switch; save(); render(); }
+  else if (d.themeSet !== undefined) { state.theme = d.themeSet || undefined; save(); applyTheme(); render(); }
+  else if (d.act === 'addEv') editActivity(null);
+  else if (d.act === 'addEvOn') editActivity(null, d.on);
+  else if (d.act === 'bulk') bulkDialog();
+  else if (d.act === 'addGuide') editGuide(null);
+  else if (d.act === 'openDate') openDateDialog();
+  else if (d.act === 'newGame') newGameDialog();
+  else if (d.act === 'saveGame') {
+    const name = document.getElementById('gName').value.trim();
+    const od = document.getElementById('gOpen').value;
+    const n = parseInt(document.getElementById('gToday').value, 10);
+    if (name) g.name = name;
+    if (n > 0 && n !== dayOf(localToday())) g.openDate = addDays(localToday(), -(n - 1));
+    else if (isDate(od)) g.openDate = od;
+    delete g.sampleDate; save(); render(); toast('已保存');
+  }
+  else if (d.act === 'delGame') {
+    if (el.dataset.armed !== '1') { el.dataset.armed = '1'; el.textContent = `再点一次删除「${g.name}」`; return; }
+    state.games = state.games.filter(x => x.id !== g.id); state.currentGameId = state.games[0].id; save(); render(); toast('已删除');
+  }
+  else if (d.act === 'exportFile') {
+    const blob = new Blob([exportText()], { type: 'application/json' });
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `游戏备忘录备份-${localToday()}.json`;
+    document.body.appendChild(a); a.click(); a.remove();
+    toast('如果没有开始下载，请改用「复制备份文本」');
+  }
+  else if (d.act === 'exportCopy') {
+    const txt = exportText();
+    const fallback = () => openDialog(`<h2>备份文本</h2><div class="hint">全选下面的文字并复制，保存到备忘录或发给自己。</div>
+      <div class="field"><textarea id="expTxt" readonly style="min-height:240px;font-size:12px">${esc(txt)}</textarea></div>
+      <div class="dlg-foot"><span></span><button class="btn primary" value="cancel">关闭</button></div>`, () => {});
+    if (navigator.clipboard?.writeText) navigator.clipboard.writeText(txt).then(() => toast('备份已复制到剪贴板'), fallback); else fallback();
+  }
+  else if (d.act === 'importPaste') {
+    openDialog(`<h2>粘贴文本恢复</h2><div class="hint">恢复会覆盖当前所有数据。</div>
+      <div class="field"><label for="impTxt">备份文本</label><textarea id="impTxt" name="txt" style="min-height:200px;font-size:12px"></textarea></div>
+      <div class="dlg-foot"><span></span><span class="btn-row"><button class="btn" value="cancel" formnovalidate>取消</button><button class="btn primary" value="ok">恢复</button></span></div>`,
+    (_, fd) => doImport(String(fd.get('txt'))));
+  }
+});
+
+document.getElementById('gameSel').addEventListener('change', e => {
+  if (e.target.value === '__new') { header(); newGameDialog(); return; }
+  state.currentGameId = e.target.value; save(); render();
+});
+document.getElementById('seal').addEventListener('click', openDateDialog);
+
+const VIEWS = ['today', 'calendar', 'events', 'guides', 'data'];
+function route() { const h = location.hash.slice(1); view = VIEWS.includes(h) ? h : 'today'; render(); window.scrollTo(0, 0); }
+window.addEventListener('hashchange', route);
+// 跨过零点或切回前台时刷新“今天”
+let lastDay = localToday();
+document.addEventListener('visibilitychange', () => { if (!document.hidden && localToday() !== lastDay) { lastDay = localToday(); render(); } });
+
+applyTheme();
+save();
+route();
+
+/*PWA-SW*/ if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol) && window.top === window) { navigator.serviceWorker.register('sw.js').catch(() => {}); }
+})();
+</script>
+</body>
+</html>
