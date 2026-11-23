@@ -177,6 +177,14 @@ h2 { font-family: var(--f-display); font-size: 18px; margin: 0; text-wrap: balan
 .pairs { display: grid; gap: 4px; }
 .pair { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 8px; background: var(--surface-2); border-radius: 6px; padding: 7px 10px; text-align: center; }
 .pair .x { font-size: 12px; color: var(--jade); font-weight: 700; border: 1px solid var(--jade); border-radius: 4px; padding: 0 6px; }
+.tbl-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; }
+.tbl { border-collapse: collapse; width: 100%; font-size: 14px; }
+.tbl th { background: var(--gold-bg); font-weight: 700; text-align: left; white-space: nowrap; }
+.tbl th, .tbl td { padding: 7px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+.tbl tr:last-child td { border-bottom: 0; }
+.tbl td:first-child { white-space: nowrap; font-weight: 700; color: var(--cinnabar); }
+.tbl td:nth-child(2) { min-width: 7em; font-weight: 500; }
+.tbl td:nth-child(3) { min-width: 12em; color: var(--muted); }
 .guide-foot { display: flex; justify-content: space-between; align-items: center; gap: 8px; color: var(--muted); font-size: 12px; flex-wrap: wrap; }
 
 /* 表单 / 弹窗 */
@@ -246,9 +254,88 @@ const uid = () => Math.random().toString(36).slice(2, 10);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 /* ---------- 示例数据（来自截图） ---------- */
+const EARLY_ROWS = [
+  [2, 4, '招募令冲榜', '吕布和专武', ''],
+  [5, 7, '点将令招募冲榜', '吕布', '结束后屯点将令（11天返场）'],
+  [5, 7, '第一次军团大乱斗', '商店换武将专武', ''],
+  [8, 10, '专武阵营招募', '吕布、专武', ''],
+  [10, 10, '寻宝助力活动', '吕布、宝石', ''],
+  [10, 12, '第一次黄金密藏', '宝物碎片', ''],
+  [11, 14, '阵营点将令返场', '点将令', '结束之后屯100个点将令（用于SP典韦）'],
+  [12, 15, '天灯活动', 'SP法宝九州神鼎', '需260个寻宝罗盘（每10层获得一个SP）'],
+  [14, 16, '第一次占城为王', '罗盘', ''],
+  [15, 15, '开启幸运转盘', '每日一抽白嫖', '7天'],
+  [15, 18, '阵营专武返场（部分跨服军团开启）', '神工锤', '结束后屯100个神工锤（用于SP典韦）'],
+  [17, 19, '寻驹助力活动', '寻驹令', ''],
+  [18, 18, '第一次富甲天下活动', '吕布、寻驹令', '跑商，跟个活跃军团'],
+  [20, 23, '玲珑宝阁活动', 'SP名驹沧溟元相', '寻驹令累计使用400抽完成任务（每10层获得一个SP）'],
+  [21, 23, '第二次军团大乱斗', '', ''],
+  [22, 24, '第二次黄金密藏活动', 'SP碎片、吕布', ''],
+  [22, 22, '开启功勋商店', '唤阵旗', '完成任务，功勋换东西，68米开功勋战令'],
+  [26, 28, '阵法助力活动', '', ''],
+  [27, 28, '第一轮SP修罗典韦', 'SP典韦卡', '抽100点将令和100阵营专武锤子完成任务获得一张SP典韦卡'],
+  [28, 28, '跨服军团开启', '', '早上10点前加入跨服军团'],
+  [28, 30, '第二次占城为王活动', '', ''],
+  [33, 33, '开赤壁之战活动', '吕布、阵法', ''],
+  [35, 39, '第二轮天灯活动', 'SP法宝传国玉玺', '需260个寻宝罗盘（每10层获得一个SP）'],
+  [37, 39, '开启神兽活动', '万兽铃', ''],
+  [37, 39, '第二次富甲天下活动', '吕布、寻驹令', ''],
+  [40, 44, '开投壶神兽活动', 'SP神兽北冥巨鲲', '需要260个万兽铃（保底200抽可获得）'],
+  [43, 43, '开启装备打造', '', ''],
+  [47, 52, '第二轮玲珑宝阁', 'SP名驹凌波踏岳', '寻驹令累计使用400抽完成任务（每10层获得一个SP）'],
+  [53, 57, '聚宝牌阵', 'SP兵法奇门遁甲', '需260个兵法简（每10层获得一个SP）'],
+  [58, 62, '第二轮SP天香小乔', 'SP天香小乔本体卡', '抽100点将令和100阵营专武锤子完成任务获得一张SP本体卡'],
+  [58, 60, '第三次占城为王', '', ''],
+  [60, 63, '第三轮天灯活动', 'SP法宝乾坤八卦', '需260个寻宝罗盘（每10层获得一个SP）'],
+  [65, 69, '第二轮投壶神兽活动', 'SP神兽麒麟', '需要260个万兽铃（保底200抽可获得）'],
+  [65, 65, '解锁神器', '寻珍令', ''],
+  [70, 75, '第三轮玲珑宝阁', 'SP名驹太幽龙骧', '寻驹令累计使用400抽完成任务（每10层获得一个SP）'],
+  [77, 82, '第三轮SP龙胆赵云', 'SP龙胆赵云本体卡', '抽100点将令和100阵营专武锤子完成任务获得一张SP本体卡'],
+  [82, 82, '解锁英杰', '聚贤帖', ''],
+  [83, 83, '聚宝牌阵', 'SP兵法雷霆万钧', '需260个兵法简（每10层获得一个SP）'],
+  [85, 85, '英杰秦始皇', 'SP秦始皇', '累计使用260聚贤帖'],
+  [90, 90, '第四轮玲珑宝阁', 'SP名驹怒焰麒麟', '寻驹令累计使用400抽完成任务（每10层获得一个SP）'],
+  [100, 100, '解锁装备精炼', '', ''],
+  [103, 107, '第四轮SP圣手华佗', 'SP圣手华佗本体卡', '抽100点将令和100阵营专武锤子完成任务获得一张SP本体卡（可切换天香小乔）'],
+  [108, 112, '第三轮投壶神兽活动', 'SP神兽白泽', '需要260个万兽铃（保底200抽可获得），可切换北冥巨鲲'],
+  [113, 117, '聚宝牌阵', 'SP兵法七星逆命', ''],
+  [118, 122, '英杰韩信', 'SP韩信', ''],
+  [123, 127, '第四轮天灯活动', 'SP法宝赤霄帝剑', '可切换乾坤八卦镜'],
+  [128, 132, '第五轮玲珑宝阁', 'SP名驹幽冥玄骨', ''],
+  [133, 137, '第五轮SP天命郭嘉', 'SP天命郭嘉本体卡', ''],
+  [138, 142, '第四轮投壶神兽活动', 'SP北冥巨鲲', ''],
+  [143, 147, '聚宝牌阵', 'SP兵法龙战于野', ''],
+  [148, 152, '英杰武则天', 'SP武则天', ''],
+  [153, 157, '第五轮天灯活动', 'SP法宝传国玉玺', ''],
+  [158, 162, '第六轮玲珑宝阁', 'SP名驹朔风傲骨', ''],
+  [163, 167, '第六轮SP业火陆逊', 'SP陆逊', ''],
+  [168, 172, '第五轮投壶神兽活动', 'SP神兽饕餮', ''],
+  [173, 177, '聚宝牌阵', 'SP兵法三足鼎立', ''],
+  [179, 182, '英杰嬴政', '', ''],
+  [183, 187, '第六轮天灯活动', 'SP法宝河图洛书', ''],
+  [188, 192, '第七轮玲珑宝阁', 'SP名驹沧溟无相', '不可更换名驹'],
+  [193, 197, '第七轮SP伏虎张飞', 'SP伏虎张飞本体卡', ''],
+  [198, 202, '第六轮投壶神兽活动', 'SP神兽', '可切换巨鲲、麒麟、白泽'],
+  [203, 207, '聚宝牌阵', 'SP兵法浴火涅槃', '可切换龙战于野'],
+];
+const LINEUP_GUIDE = {
+  title: '阵容推荐：武将+名驹', tags: '阵容, 名驹, 宝物',
+  content: [
+    '| 上阵位置 | 武将+名驹 | 效果 |',
+    '| 1号位 | 司马懿（绝影） | 司马懿大招提供控制，搭配绝影后普攻也概率控制 |',
+    '| 2号位 | 刘备（的卢） | 刘备给队友提供暴击率增益，搭配的卢增加生存 |',
+    '| 3号位 | 诸葛亮（爪黄飞电） | 诸葛亮给队友回复生命，搭配爪黄飞电增加回复量 |',
+    '| 4号位 | 貂蝉（乌云踏雪） | 貂蝉可吸取敌方怒气，满星后能为队内最高攻击队友回复等额怒气，搭配乌云踏雪怒机器每次附带百分比伤害 |',
+    '| 5号位 | 张辽（夜照玉狮子） | 张辽大招拥有高额单体爆发，搭配夜照玉狮子可大幅提升大招伤害 |',
+    '| 6号位 | 吕布（赤兔） | 吕布绝对核心，拥有全体AOE与真伤，同时自带回复，搭配赤兔进一步拔高输出 |',
+    '| 宝物助战 | 九州神鼎+诸葛连弩+太平要术 | 九州神鼎必定暴击特性与防御穿透，诸葛连弩大幅增伤，太平要术提供全队回血并增加暴击率 |',
+  ].join('\n'),
+};
+const SEED_VERSION = 2;
 function sampleGame() {
   const today = localToday();
   const rows = [
+    ...EARLY_ROWS,
     [398, 402, '第14次玲珑宝阁', 'SP名驹破虚夜影', '寻驹令累计使用400抽，十层获得SP名驹破虚夜影，可切换碧落衔芝'],
     [403, 407, '第14次SP武将炎君周瑜', 'SP炎君周瑜本体卡', '累计使用100点将令和100阵营专武锤子，获得炎君周瑜SP本体卡，可切换噬心司马懿'],
     [408, 412, '第13次投壶神兽活动', 'SP神兽金翅大鹏', '累计使用260万兽铃，可获得sp神兽金翅大鹏，可切换穷奇'],
@@ -269,7 +356,7 @@ function sampleGame() {
       id: uid(), title: '官学合作-青杉攻略', tags: '官学, 属性',
       content: '伤害率 合作 免伤率\n暴击率 合作 抗暴率\n破击率 合作 格挡率\n# 三国青杉 - QS3165\n暴击强度 合作 暴击抗性\n破击强度 合作 格挡减伤',
       updated: today,
-    }],
+    }, { id: uid(), ...LINEUP_GUIDE, updated: today }],
   };
 }
 
@@ -279,7 +366,7 @@ function load() {
   try { const raw = localStorage.getItem(KEY); if (raw) return JSON.parse(raw); } catch (e) {}
   if (memStore) return memStore;
   const g = sampleGame();
-  return { version: 1, currentGameId: g.id, games: [g] };
+  return { version: 1, seedVersion: SEED_VERSION, currentGameId: g.id, games: [g] };
 }
 function save() {
   memStore = state;
@@ -289,6 +376,14 @@ let state = load();
 if (!state.games?.length) { const g = sampleGame(); state = { version: 1, currentGameId: g.id, games: [g] }; }
 // 旧版示例数据里的游戏名改为正式名称
 state.games.forEach(g => { if (g.name === '三国青杉') g.name = '掌上谈兵'; });
+// 给已有数据补上新加入的示例内容（不重复添加）
+if ((state.seedVersion || 1) < 2) {
+  const g = state.games.find(x => x.name === '掌上谈兵') || state.games[0];
+  const has = new Set(g.activities.map(a => `${a.start}|${a.name}`));
+  EARLY_ROWS.forEach(([s, e, name, reward, note]) => { if (!has.has(`${s}|${name}`)) g.activities.push({ id: uid(), mode: 'day', start: s, end: e, name, reward, note }); });
+  if (!g.guides.some(x => x.title === LINEUP_GUIDE.title)) g.guides.push({ id: uid(), ...LINEUP_GUIDE, updated: localToday() });
+  state.seedVersion = SEED_VERSION;
+}
 const game = () => state.games.find(g => g.id === state.currentGameId) || state.games[0];
 
 /* ---------- 活动计算 ---------- */
@@ -456,15 +551,25 @@ function guideBody(content) {
   let html = '', pairs = [], para = [];
   const flushPairs = () => { if (pairs.length) { html += `<div class="pairs">${pairs.join('')}</div>`; pairs = []; } };
   const flushPara = () => { if (para.length) { html += `<div class="gb-p">${esc(para.join('\n'))}</div>`; para = []; } };
+  let table = [];
+  const flushTable = () => {
+    if (!table.length) return;
+    const rows = table.map(l => l.replace(/^\||\|$/g, '').split('|').map(c => c.trim())).filter(r => !r.every(c => /^:?-+:?$/.test(c)));
+    const [head, ...body] = rows;
+    html += `<div class="tbl-wrap"><table class="tbl"><thead><tr>${head.map(c => `<th>${esc(c)}</th>`).join('')}</tr></thead><tbody>${body.map(r => `<tr>${r.map(c => `<td>${esc(c)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+    table = [];
+  };
   for (const raw of lines) {
     const line = raw.trim();
+    if (line.startsWith('|')) { flushPairs(); flushPara(); table.push(line); continue; }
+    flushTable();
     const pm = /^(.+?)\s*(合作|→|<->|↔|克制|搭配|=)\s*(.+)$/.exec(line);
     if (line.startsWith('#')) { flushPairs(); flushPara(); html += `<div class="gb-h">${esc(line.replace(/^#+\s*/, ''))}</div>`; }
     else if (pm && line.length < 40) { flushPara(); pairs.push(`<div class="pair"><span>${esc(pm[1])}</span><span class="x">${esc(pm[2])}</span><span>${esc(pm[3])}</span></div>`); }
     else if (!line) { flushPairs(); flushPara(); }
     else { flushPairs(); para.push(raw); }
   }
-  flushPairs(); flushPara();
+  flushPairs(); flushPara(); flushTable();
   return html || '<div class="hint">（空）</div>';
 }
 
@@ -678,7 +783,7 @@ function editGuide(x) {
     <div class="field"><label for="gT">标题</label><input id="gT" name="title" required value="${esc(x.title)}" placeholder="例如：官学合作-青杉攻略"></div>
     <div class="field"><label for="gTags">标签（逗号分隔）</label><input id="gTags" name="tags" value="${esc(x.tags)}" placeholder="例如：阵容, 养成"></div>
     <div class="field"><label for="gC">内容</label><textarea id="gC" name="content" style="min-height:220px">${esc(x.content)}</textarea></div>
-    <div class="hint">小技巧：<code class="k">A 合作 B</code> 这样的行会排成对照表；以 <code class="k">#</code> 开头的行显示为小标题。</div>
+    <div class="hint">小技巧：<code class="k">A 合作 B</code> 这样的行会排成对照表；以 <code class="k">#</code> 开头的行显示为小标题；<code class="k">| 列1 | 列2 |</code> 这样的行会排成表格（第一行是表头）。</div>
     <div class="dlg-foot">
       <span>${isNew ? '' : '<button class="btn danger" value="delete" data-confirm="再点一次确认删除">删除</button>'}</span>
       <span class="btn-row"><button class="btn" value="cancel" formnovalidate>取消</button><button class="btn primary" value="ok">保存</button></span>
