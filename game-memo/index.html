@@ -263,7 +263,7 @@ function sampleGame() {
     [453, 457, '第16轮天灯活动', 'SP法宝青冥之刃', '罗盘累计使用260抽，十层获得SP法宝青冥之刃，可切换龙渊剑祖'],
   ];
   return {
-    id: uid(), name: '三国青杉', openDate: addDays(today, -399), sampleDate: true,
+    id: uid(), name: '掌上谈兵', openDate: addDays(today, -399), sampleDate: true,
     activities: rows.map(([s, e, name, reward, note]) => ({ id: uid(), mode: 'day', start: s, end: e, name, reward, note })),
     guides: [{
       id: uid(), title: '官学合作-青杉攻略', tags: '官学, 属性',
@@ -287,6 +287,8 @@ function save() {
 }
 let state = load();
 if (!state.games?.length) { const g = sampleGame(); state = { version: 1, currentGameId: g.id, games: [g] }; }
+// 旧版示例数据里的游戏名改为正式名称
+state.games.forEach(g => { if (g.name === '三国青杉') g.name = '掌上谈兵'; });
 const game = () => state.games.find(g => g.id === state.currentGameId) || state.games[0];
 
 /* ---------- 活动计算 ---------- */
@@ -714,7 +716,7 @@ function openDateDialog() {
 function newGameDialog() {
   openDialog(`
     <h2>添加游戏</h2>
-    <div class="field"><label for="nN">游戏 / 区服名称</label><input id="nN" name="name" required placeholder="例如：三国青杉 S12服"></div>
+    <div class="field"><label for="nN">游戏 / 区服名称</label><input id="nN" name="name" required placeholder="例如：掌上谈兵 S12服"></div>
     <div class="field"><label for="nD">开服日期</label><input id="nD" name="d" type="date" value="${localToday()}"></div>
     <div class="dlg-foot"><span></span><span class="btn-row"><button class="btn" value="cancel" formnovalidate>取消</button><button class="btn primary" value="ok">添加</button></span></div>`,
   (_, fd) => {
