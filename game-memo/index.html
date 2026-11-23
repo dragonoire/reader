@@ -318,6 +318,19 @@ const EARLY_ROWS = [
   [198, 202, '第六轮投壶神兽活动', 'SP神兽', '可切换巨鲲、麒麟、白泽'],
   [203, 207, '聚宝牌阵', 'SP兵法浴火涅槃', '可切换龙战于野'],
 ];
+const MID_ROWS = (() => {
+  // 群公告：开服第208–362天，每5天一档，按 英杰→法宝→名驹→武将→神兽→兵法 循环
+  const kinds = ['SP英杰', '天灯活动', '玲珑宝阁', 'SP武将', '投壶神兽活动', '兵法阵牌活动'];
+  const rewards = [
+    'SP英杰项羽', 'SP法宝返厂（八卦镜）', 'SP名驹青莲碎玉', 'SP贾诩', 'SP神兽应龙', 'SP兵法返厂（雷霆）',
+    'SP英杰返厂（韩信）', 'SP法宝紫微星盘', 'SP名驹雷鸣奔霄', 'SP张辽', 'SP神兽返厂（白泽）', 'SP兵法山崩地裂',
+    'SP英杰张良', 'SP法宝返厂（帝剑）', 'SP名驹冰魄流辉', 'SP孙策', 'SP神兽烛阴', 'SP兵法返厂（七星）',
+    'SP英杰返厂（武则天）', 'SP法宝青冥之刃', 'SP名驹墨兆山河', 'SP关羽', 'SP神兽返厂（饕餮）', 'SP兵法神兵天降',
+    'SP英杰李世民', 'SP法宝返厂', 'SP名驹追星逐月', 'SP貂蝉', 'SP神兽穷奇', 'SP兵法返厂（山崩）',
+    'SP英杰返厂（项羽）',
+  ];
+  return rewards.map((r, i) => [208 + i * 5, 212 + i * 5, kinds[i % 6], r, '来源：群公告']);
+})();
 const LINEUP_GUIDE = {
   title: '阵容推荐：武将+名驹', tags: '阵容, 名驹, 宝物',
   content: [
@@ -331,11 +344,12 @@ const LINEUP_GUIDE = {
     '| 宝物助战 | 九州神鼎+诸葛连弩+太平要术 | 九州神鼎必定暴击特性与防御穿透，诸葛连弩大幅增伤，太平要术提供全队回血并增加暴击率 |',
   ].join('\n'),
 };
-const SEED_VERSION = 2;
+const SEED_VERSION = 3;
 function sampleGame() {
   const today = localToday();
   const rows = [
     ...EARLY_ROWS,
+    ...MID_ROWS,
     [398, 402, '第14次玲珑宝阁', 'SP名驹破虚夜影', '寻驹令累计使用400抽，十层获得SP名驹破虚夜影，可切换碧落衔芝'],
     [403, 407, '第14次SP武将炎君周瑜', 'SP炎君周瑜本体卡', '累计使用100点将令和100阵营专武锤子，获得炎君周瑜SP本体卡，可切换噬心司马懿'],
     [408, 412, '第13次投壶神兽活动', 'SP神兽金翅大鹏', '累计使用260万兽铃，可获得sp神兽金翅大鹏，可切换穷奇'],
@@ -377,11 +391,16 @@ if (!state.games?.length) { const g = sampleGame(); state = { version: 1, curren
 // 旧版示例数据里的游戏名改为正式名称
 state.games.forEach(g => { if (g.name === '三国青杉') g.name = '掌上谈兵'; });
 // 给已有数据补上新加入的示例内容（不重复添加）
-if ((state.seedVersion || 1) < 2) {
+if ((state.seedVersion || 1) < SEED_VERSION) {
+  const v = state.seedVersion || 1;
   const g = state.games.find(x => x.name === '掌上谈兵') || state.games[0];
   const has = new Set(g.activities.map(a => `${a.start}|${a.name}`));
-  EARLY_ROWS.forEach(([s, e, name, reward, note]) => { if (!has.has(`${s}|${name}`)) g.activities.push({ id: uid(), mode: 'day', start: s, end: e, name, reward, note }); });
-  if (!g.guides.some(x => x.title === LINEUP_GUIDE.title)) g.guides.push({ id: uid(), ...LINEUP_GUIDE, updated: localToday() });
+  const addRows = rows => rows.forEach(([s, e, name, reward, note]) => { if (!has.has(`${s}|${name}`)) g.activities.push({ id: uid(), mode: 'day', start: s, end: e, name, reward, note }); });
+  if (v < 2) {
+    addRows(EARLY_ROWS);
+    if (!g.guides.some(x => x.title === LINEUP_GUIDE.title)) g.guides.push({ id: uid(), ...LINEUP_GUIDE, updated: localToday() });
+  }
+  if (v < 3) addRows(MID_ROWS);
   state.seedVersion = SEED_VERSION;
 }
 const game = () => state.games.find(g => g.id === state.currentGameId) || state.games[0];
