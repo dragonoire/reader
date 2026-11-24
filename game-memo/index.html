@@ -185,6 +185,13 @@ h2 { font-family: var(--f-display); font-size: 18px; margin: 0; text-wrap: balan
 .tbl td:first-child { white-space: nowrap; font-weight: 700; color: var(--cinnabar); }
 .tbl td:nth-child(2) { min-width: 7em; font-weight: 500; }
 .tbl td:nth-child(3) { min-width: 12em; color: var(--muted); }
+.markable { cursor: pointer; transition: background .15s, box-shadow .15s; user-select: none; }
+.pair.markable:hover { box-shadow: inset 0 0 0 1px var(--line); }
+.pair.on { background: var(--gold-bg); box-shadow: inset 4px 0 0 var(--cinnabar); font-weight: 700; }
+.pair.on .x { background: var(--cinnabar); border-color: var(--cinnabar); color: #fff; }
+.tbl tr.on td { background: var(--gold-bg); }
+.tbl tr.on td:first-child { box-shadow: inset 4px 0 0 var(--cinnabar); }
+.tbl tr.on td:nth-child(3) { color: var(--ink); }
 .guide-foot { display: flex; justify-content: space-between; align-items: center; gap: 8px; color: var(--muted); font-size: 12px; flex-wrap: wrap; }
 
 /* 表单 / 弹窗 */
@@ -591,7 +598,10 @@ function renderEvents() {
     <section class="list">${list.length ? list.map(a => evCard(a, t)).join('') : '<div class="empty">没有符合条件的活动</div>'}</section>`;
 }
 
-function guideBody(content) {
+function guideBody(guide) {
+  const content = guide.content;
+  const marks = new Set(guide.marks || []);
+  const mk = key => `data-mark="${esc(key)}" data-guide="${guide.id}" role="button" tabindex="0" aria-pressed="${marks.has(key)}"`;
   const lines = String(content).split('\n');
   let html = '', pairs = [], para = [];
   const flushPairs = () => { if (pairs.length) { html += `<div class="pairs">${pairs.join('')}</div>`; pairs = []; } };
@@ -601,7 +611,7 @@ function guideBody(content) {
     if (!table.length) return;
     const rows = table.map(l => l.replace(/^\||\|$/g, '').split('|').map(c => c.trim())).filter(r => !r.every(c => /^:?-+:?$/.test(c)));
     const [head, ...body] = rows;
-    html += `<div class="tbl-wrap"><table class="tbl"><thead><tr>${head.map(c => `<th>${esc(c)}</th>`).join('')}</tr></thead><tbody>${body.map(r => `<tr>${r.map(c => `<td>${esc(c)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+    html += `<div class="tbl-wrap"><table class="tbl"><thead><tr>${head.map(c => `<th>${esc(c)}</th>`).join('')}</tr></thead><tbody>${body.map(r => `<tr class="markable${marks.has(r.join('|')) ? ' on' : ''}" ${mk(r.join('|'))}>${r.map(c => `<td>${esc(c)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
     table = [];
   };
   for (const raw of lines) {
@@ -610,7 +620,7 @@ function guideBody(content) {
     flushTable();
     const pm = /^(.+?)\s*(合作|→|<->|↔|克制|搭配|=)\s*(.+)$/.exec(line);
     if (line.startsWith('#')) { flushPairs(); flushPara(); html += `<div class="gb-h">${esc(line.replace(/^#+\s*/, ''))}</div>`; }
-    else if (pm && line.length < 40) { flushPara(); pairs.push(`<div class="pair"><span>${esc(pm[1])}</span><span class="x">${esc(pm[2])}</span><span>${esc(pm[3])}</span></div>`); }
+    else if (pm && line.length < 40) { flushPara(); pairs.push(`<div class="pair markable${marks.has(line) ? ' on' : ''}" ${mk(line)}><span>${esc(pm[1])}</span><span class="x">${esc(pm[2])}</span><span>${esc(pm[3])}</span></div>`); }
     else if (!line) { flushPairs(); flushPara(); }
     else { flushPairs(); para.push(raw); }
   }
@@ -631,7 +641,7 @@ function renderGuides() {
     <section class="list">${list.length ? list.map((x, i) => `
       <details class="guide"${i === 0 && !q ? ' open' : q ? ' open' : ''}>
         <summary><span class="t">${esc(x.title)}</span>${String(x.tags || '').split(/[,，\s]+/).filter(Boolean).map(t => `<span class="tag">${esc(t)}</span>`).join('')}<span class="chev">›</span></summary>
-        <div class="guide-body">${guideBody(x.content)}
+        <div class="guide-body">${guideBody(x)}<div class="hint">点一下某一行可以标亮，再点一下取消。</div>
           <div class="guide-foot"><span>更新于 ${esc(x.updated || '')}</span>
             <span class="btn-row"><button type="button" class="btn sm" data-copy-guide="${x.id}">复制</button><button type="button" class="btn sm" data-edit-guide="${x.id}">编辑</button></span></div>
         </div>
@@ -896,6 +906,8 @@ function applyTheme() {
 
 /* ---------- 事件 ---------- */
 document.addEventListener('click', e => {
+  const mark = e.target.closest('[data-mark]');
+  if (mark && !dlg.contains(mark)) { toggleMark(mark); return; }
   const el = e.target.closest('button,[data-day]');
   if (!el || dlg.contains(el)) return;
   const g = game();
@@ -956,6 +968,19 @@ document.addEventListener('click', e => {
   }
 });
 
+function toggleMark(el) {
+  const g = game().guides.find(x => x.id === el.dataset.guide); if (!g) return;
+  const key = el.dataset.mark;
+  const set = new Set(g.marks || []);
+  if (set.has(key)) set.delete(key); else set.add(key);
+  g.marks = [...set]; save();
+  const on = set.has(key);
+  el.classList.toggle('on', on); el.setAttribute('aria-pressed', on);
+}
+document.addEventListener('keydown', e => {
+  const el = e.target.closest && e.target.closest('[data-mark]');
+  if (el && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); toggleMark(el); }
+});
 document.getElementById('gameSel').addEventListener('change', e => {
   if (e.target.value === '__new') { header(); newGameDialog(); return; }
   state.currentGameId = e.target.value; save(); render();
